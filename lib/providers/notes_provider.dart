@@ -4,22 +4,28 @@ import '../models/note.dart';
 import '../services/database_service.dart';
 import '../services/file_storage.dart';
 
-/// Holds the list of notes, the active category filter, and CRUD operations.
+/// Holds the list of notes, the active folder filter, and CRUD operations.
 class NotesProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService.instance;
   final FileStorage _storage = FileStorage();
 
   List<Note> _notes = [];
-  NoteCategory? _filter; // null == "Tous"
+  String? _selectedFolderId; // null == "Tous"
   bool _loading = false;
 
   List<Note> get allNotes => _notes;
-  NoteCategory? get filter => _filter;
+  String? get selectedFolderId => _selectedFolderId;
   bool get isLoading => _loading;
 
   List<Note> get notes {
-    if (_filter == null) return _notes;
-    return _notes.where((n) => n.category == _filter).toList();
+    if (_selectedFolderId == null) return _notes;
+    return _notes.where((n) => n.folderId == _selectedFolderId).toList();
+  }
+
+  int get totalCount => _notes.length;
+
+  int countForFolder(String folderId) {
+    return _notes.where((n) => n.folderId == folderId).length;
   }
 
   Future<void> load() async {
@@ -30,8 +36,22 @@ class NotesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setFilter(NoteCategory? category) {
-    _filter = category;
+  void setFolderFilter(String? folderId) {
+    _selectedFolderId = folderId;
+    notifyListeners();
+  }
+
+  /// Clears the filter if the selected folder no longer exists.
+  void onFolderRemoved(String folderId) {
+    for (final note in _notes) {
+      if (note.folderId == folderId) {
+        final index = _notes.indexOf(note);
+        _notes[index] = note.copyWith(clearFolder: true);
+      }
+    }
+    if (_selectedFolderId == folderId) {
+      _selectedFolderId = null;
+    }
     notifyListeners();
   }
 

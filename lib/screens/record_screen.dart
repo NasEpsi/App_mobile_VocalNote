@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/note.dart';
+import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/recording_provider.dart';
 import '../widgets/record_button.dart';
@@ -18,10 +19,16 @@ class RecordScreen extends StatefulWidget {
 class _RecordScreenState extends State<RecordScreen> {
   final _titleController = TextEditingController();
   final _transcriptController = TextEditingController();
-  NoteCategory _category = NoteCategory.perso;
+  String? _folderId;
 
   bool _reviewing = false;
   RecordingResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    _folderId = context.read<NotesProvider>().selectedFolderId;
+  }
 
   @override
   void dispose() {
@@ -77,7 +84,7 @@ class _RecordScreenState extends State<RecordScreen> {
           : _titleController.text.trim(),
       transcript: _transcriptController.text.trim(),
       audioPath: result?.audioPath,
-      category: _category,
+      folderId: _folderId,
       durationMs: result?.duration.inMilliseconds ?? 0,
       createdAt: DateTime.now(),
     );
@@ -199,22 +206,11 @@ class _RecordScreenState extends State<RecordScreen> {
           ),
           const SizedBox(height: 20),
           const Text(
-            'Catégorie',
+            'Dossier',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final category in NoteCategory.values)
-                ChoiceChip(
-                  label: Text(category.label),
-                  selected: _category == category,
-                  selectedColor: category.color.withValues(alpha: 0.2),
-                  onSelected: (_) => setState(() => _category = category),
-                ),
-            ],
-          ),
+          _buildFolderChips(),
           const SizedBox(height: 20),
           const Text(
             'Transcription',
@@ -241,6 +237,28 @@ class _RecordScreenState extends State<RecordScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFolderChips() {
+    final folders = context.watch<FoldersProvider>().folders;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ChoiceChip(
+          label: const Text('Aucun'),
+          selected: _folderId == null,
+          onSelected: (_) => setState(() => _folderId = null),
+        ),
+        for (final folder in folders)
+          ChoiceChip(
+            label: Text(folder.name),
+            selected: _folderId == folder.id,
+            selectedColor: folder.color.withValues(alpha: 0.2),
+            onSelected: (_) => setState(() => _folderId = folder.id),
+          ),
+      ],
     );
   }
 

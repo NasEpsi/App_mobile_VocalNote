@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/folders_provider.dart';
 import 'providers/notes_provider.dart';
 import 'providers/recording_provider.dart';
 import 'screens/home_screen.dart';
@@ -10,6 +12,7 @@ import 'services/db_init.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   initDatabaseFactory();
+  await initializeDateFormatting('fr_FR', null);
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {
@@ -26,6 +29,7 @@ class VoiceNotesApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => NotesProvider()..load()),
+        ChangeNotifierProvider(create: (_) => FoldersProvider()..load()),
         ChangeNotifierProvider(create: (_) => RecordingProvider()),
       ],
       child: MaterialApp(

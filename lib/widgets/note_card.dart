@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 
+import '../models/folder.dart';
 import '../models/note.dart';
 
-/// A card in the "Récents" list showing a note's title, snippet and category.
+/// A card in the "Récents" list showing a note's title, snippet and folder.
 class NoteCard extends StatelessWidget {
   final Note note;
+  final Folder? folder;
   final VoidCallback onTap;
 
-  const NoteCard({super.key, required this.note, required this.onTap});
+  const NoteCard({
+    super.key,
+    required this.note,
+    required this.folder,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final accent = folder?.color ?? const Color(0xFF9AA0AE);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -25,14 +33,14 @@ class NoteCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: note.category.color.withValues(alpha: 0.15),
+                  color: accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   note.audioPath != null
                       ? Icons.graphic_eq_rounded
                       : Icons.notes_rounded,
-                  color: note.category.color,
+                  color: accent,
                 ),
               ),
               const SizedBox(width: 14),
@@ -54,7 +62,7 @@ class NoteCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        _CategoryTag(category: note.category),
+                        if (folder != null) _FolderTag(folder: folder!),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -101,24 +109,24 @@ class NoteCard extends StatelessWidget {
   }
 }
 
-class _CategoryTag extends StatelessWidget {
-  final NoteCategory category;
-  const _CategoryTag({required this.category});
+class _FolderTag extends StatelessWidget {
+  final Folder folder;
+  const _FolderTag({required this.folder});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: category.color.withValues(alpha: 0.12),
+        color: folder.color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        category.label,
+        folder.name,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: category.color,
+          color: folder.color,
         ),
       ),
     );

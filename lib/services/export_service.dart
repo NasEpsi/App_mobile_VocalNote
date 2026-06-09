@@ -17,10 +17,10 @@ class ExportService {
     return cleaned.isEmpty ? 'note' : cleaned.replaceAll(RegExp(r'\s+'), '_');
   }
 
-  String _buildText(Note note) {
+  String _buildText(Note note, String folderName) {
     final buffer = StringBuffer()
       ..writeln(note.title)
-      ..writeln('Catégorie: ${note.category.label}')
+      ..writeln('Dossier: $folderName')
       ..writeln('Date: ${_dateFormat.format(note.createdAt)}')
       ..writeln('Durée: ${note.formattedDuration}')
       ..writeln('')
@@ -28,11 +28,15 @@ class ExportService {
     return buffer.toString();
   }
 
-  Future<void> exportAndShareTxt(Note note) async {
-    await _storage.exportText('${_sanitize(note.title)}.txt', _buildText(note));
+  Future<void> exportAndShareTxt(Note note, {String? folderName}) async {
+    await _storage.exportText(
+      '${_sanitize(note.title)}.txt',
+      _buildText(note, folderName ?? 'Aucun dossier'),
+    );
   }
 
-  Future<void> exportAndSharePdf(Note note) async {
+  Future<void> exportAndSharePdf(Note note, {String? folderName}) async {
+    final folder = folderName ?? 'Aucun dossier';
     final doc = pw.Document();
     doc.addPage(
       pw.MultiPage(
@@ -52,7 +56,7 @@ class ExportService {
           pw.SizedBox(height: 8),
           pw.Row(
             children: [
-              _meta('Catégorie', note.category.label),
+              _meta('Dossier', folder),
               pw.SizedBox(width: 24),
               _meta('Date', _dateFormat.format(note.createdAt)),
               pw.SizedBox(width: 24),
