@@ -83,24 +83,5 @@ Créez un jeton gratuit sur https://huggingface.co/settings/tokens.
 ## Lancement
 
 ```bash
-flutter run            # appareil/émulateur Android connecté
-```
-
-## Notes techniques
-
-- Transcription hybride : pendant l'enregistrement, le texte en direct provient
-  du moteur intégré à l'appareil (`speech_to_text`, gratuit). Sur certains
-  appareils Android, le moteur de reconnaissance et l'enregistreur de fichier ne
-  peuvent pas utiliser le micro simultanément ; dans ce cas, si le transcript
-  live est vide, le fichier enregistré est envoyé au service cloud après l'arrêt
-  (si un jeton est configuré).
-- Le fournisseur de transcription cloud est configurable via `HF_STT_MODEL`
-  (Hugging Face / Whisper par défaut, car gratuit).
-- Permissions Android déclarées : `RECORD_AUDIO`, `INTERNET`,
-  `READ_MEDIA_AUDIO` (et `READ_EXTERNAL_STORAGE` pour les anciennes versions).
-
-## Tests
-
-```bash
-flutter test
+flutter run          
 ```
