@@ -95,4 +95,23 @@ class NotesProvider extends ChangeNotifier {
       await _storage.delete(path);
     }
   }
+
+  /// Deletes every note belonging to [folderId], including their audio files.
+  Future<void> deleteNotesInFolder(String folderId) async {
+    final toDelete = _notes.where((n) => n.folderId == folderId).toList();
+    if (toDelete.isEmpty) return;
+
+    for (final note in toDelete) {
+      await _db.deleteNote(note.id);
+    }
+    _notes.removeWhere((n) => n.folderId == folderId);
+    notifyListeners();
+
+    for (final note in toDelete) {
+      final path = note.audioPath;
+      if (path != null) {
+        await _storage.delete(path);
+      }
+    }
+  }
 }

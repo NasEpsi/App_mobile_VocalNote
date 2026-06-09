@@ -67,6 +67,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final duration = await _audioImport.probeDuration(storedRef);
+
     String transcript = '';
     if (_audioImport.isTranscriptionConfigured) {
       final result = await _audioImport.transcribe(
@@ -82,13 +84,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
     setState(() => _isImporting = false);
-    await _saveImportedNote(picked.fileName, storedRef, transcript);
+    await _saveImportedNote(picked.fileName, storedRef, transcript, duration);
   }
 
   Future<void> _saveImportedNote(
     String originalName,
     String reference,
     String transcript,
+    Duration? duration,
   ) async {
     final title = p.basenameWithoutExtension(originalName);
     final note = Note(
@@ -97,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
       transcript: transcript,
       audioPath: reference.isEmpty ? null : reference,
       folderId: context.read<NotesProvider>().selectedFolderId,
-      durationMs: 0,
+      durationMs: duration?.inMilliseconds ?? 0,
       createdAt: DateTime.now(),
     );
     if (!mounted) return;

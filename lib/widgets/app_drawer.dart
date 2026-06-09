@@ -8,6 +8,9 @@ import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
 import '../screens/note_detail_screen.dart';
 
+/// Options offered when deleting a folder that may contain notes.
+enum _FolderDeleteChoice { cancel, keepNotes, deleteNotes }
+
 /// Sidebar reproducing the Voxnote mockup: header, user folders ("Dossiers")
 /// with note counts and a "Nouveau dossier" action, then the full notes list.
 class AppDrawer extends StatelessWidget {
@@ -336,28 +339,48 @@ class AppDrawer extends StatelessWidget {
   ) async {
     final notesProvider = context.read<NotesProvider>();
     final foldersProvider = context.read<FoldersProvider>();
-    final confirmed = await showDialog<bool>(
+    final noteCount = notesProvider.countForFolder(folder.id);
+    final choice = await showDialog<_FolderDeleteChoice>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Supprimer "${folder.name}" ?'),
-        content: const Text(
-          'Le dossier sera supprimé. Les notes qu\'il contient seront conservées (sans dossier).',
+        content: Text(
+          noteCount == 0
+              ? 'Le dossier sera supprimé.'
+              : 'Ce dossier contient $noteCount note${noteCount > 1 ? 's' : ''}. '
+                  'Voulez-vous conserver les notes (elles n\'auront plus de dossier) '
+                  'ou supprimer le dossier et toutes ses notes ?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx, _FolderDeleteChoice.cancel),
             child: const Text('Annuler'),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _FolderDeleteChoice.keepNotes),
+            child: const Text('Garder les notes'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer'),
+            onPressed: () =>
+                Navigator.pop(ctx, _FolderDeleteChoice.deleteNotes),
+            child: const Text('Supprimer les notes'),
           ),
         ],
       ),
     );
-    if (confirmed == true) {
-      await foldersProvider.deleteFolder(folder.id);
-      notesProvider.onFolderRemoved(folder.id);
+
+    switch (choice) {
+      case _FolderDeleteChoice.keepNotes:
+        await foldersProvider.deleteFolder(folder.id);
+        notesProvider.onFolderRemoved(folder.id);
+        break;
+      case _FolderDeleteChoice.deleteNotes:
+        await notesProvider.deleteNotesInFolder(folder.id);
+        await foldersProvider.deleteFolder(folder.id);
+        break;
+      case _FolderDeleteChoice.cancel:
+      case null:
+        break;
     }
   }
 

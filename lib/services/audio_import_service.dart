@@ -1,6 +1,6 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 
 import 'file_storage.dart';
@@ -52,5 +52,21 @@ class AudioImportService {
     String fileName,
   ) {
     return _transcription.transcribeBytes(bytes, fileName: fileName);
+  }
+
+  /// Reads the playback duration of a stored audio [reference]. Returns null
+  /// if the duration cannot be determined.
+  Future<Duration?> probeDuration(String reference) async {
+    final player = AudioPlayer();
+    try {
+      if (kIsWeb) {
+        return await player.setUrl(reference);
+      }
+      return await player.setFilePath(reference);
+    } catch (_) {
+      return null;
+    } finally {
+      await player.dispose();
+    }
   }
 }
