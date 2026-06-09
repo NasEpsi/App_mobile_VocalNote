@@ -7,8 +7,6 @@ import '../models/note.dart';
 import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
 import '../services/audio_import_service.dart';
-import '../services/file_storage.dart';
-import '../services/transcription_service.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/note_card.dart';
@@ -29,8 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? _selectedFileName;
   bool _isImporting = false;
-  final TranscriptionService _transcription = TranscriptionService();
-  final FileStorage _storage = FileStorage();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _openRecorder() {
@@ -73,7 +69,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     String transcript = '';
     if (_audioImport.isTranscriptionConfigured) {
-      final result = await _audioImport.transcribe(picked.bytes);
+      final result = await _audioImport.transcribe(
+        picked.bytes,
+        picked.fileName,
+      );
       if (result.success) {
         transcript = result.text;
       } else if (result.error != null) {

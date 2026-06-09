@@ -47,7 +47,10 @@ class AudioImportService {
   }
 
   /// Transcribes [bytes] via the cloud service when configured.
-  Future<TranscriptionResult> transcribe(Uint8List bytes) {
-    return _transcription.transcribeBytes(bytes);
+  Future<TranscriptionResult> transcribe(
+    Uint8List bytes,
+    String fileName,
+  ) {
+    return _transcription.transcribeBytes(bytes, fileName: fileName);
   }
 }

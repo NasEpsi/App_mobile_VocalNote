@@ -7,6 +7,8 @@ import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
 import '../services/audio_player_service.dart';
 import '../services/export_service.dart';
+import '../services/file_storage.dart';
+import '../services/transcription_service.dart';
 
 /// Displays a single note with playback, inline editing and export options.
 class NoteDetailScreen extends StatefulWidget {
@@ -21,6 +23,8 @@ class NoteDetailScreen extends StatefulWidget {
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
   final AudioPlayerService _player = AudioPlayerService();
   final ExportService _export = ExportService();
+  final FileStorage _storage = FileStorage();
+  final TranscriptionService _transcription = TranscriptionService();
 
   late TextEditingController _titleController;
   late TextEditingController _transcriptController;
@@ -28,6 +32,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   bool _editing = false;
   bool _audioReady = false;
+  bool _isTranscribing = false;
 
   @override
   void initState() {
@@ -90,6 +95,46 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       await context.read<NotesProvider>().deleteNote(widget.note);
       if (mounted) Navigator.pop(context);
     }
+  }
+
+  Future<void> _transcribeAudio() async {
+    final path = widget.note.audioPath;
+    if (path == null || path.isEmpty) return;
+
+    if (!_transcription.isConfigured) {
+      _showSnackBar(
+        "Transcription non configurée. Ajoutez HF_API_TOKEN dans le fichier .env.",
+      );
+      return;
+    }
+
+    setState(() => _isTranscribing = true);
+    try {
+      final bytes = await _storage.readBytes(path);
+      final result = await _transcription.transcribeBytes(
+        bytes,
+        fileName: path,
+      );
+      if (!mounted) return;
+      if (result.success && result.text.isNotEmpty) {
+        _transcriptController.text = result.text;
+        final updated = widget.note.copyWith(transcript: result.text);
+        await context.read<NotesProvider>().updateNote(updated);
+        _showSnackBar('Transcription terminée.');
+      } else {
+        _showSnackBar(result.error ?? 'La transcription a échoué.');
+      }
+    } catch (e) {
+      if (mounted) _showSnackBar('Échec de la transcription: $e');
+    } finally {
+      if (mounted) setState(() => _isTranscribing = false);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   Future<void> _exportNote(bool pdf) async {
@@ -210,6 +255,26 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     color: Color(0xFF333947),
                   ),
                 ),
+              if (!_editing &&
+                  _transcriptController.text.isEmpty &&
+                  widget.note.audioPath != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _isTranscribing ? null : _transcribeAudio,
+                  icon: _isTranscribing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.transcribe_rounded),
+                  label: Text(
+                    _isTranscribing
+                        ? 'Transcription en cours...'
+                        : 'Transcrire l\'audio',
+                  ),
+                ),
+              ],
               const SizedBox(height: 28),
               Row(
                 children: [

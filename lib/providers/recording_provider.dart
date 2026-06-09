@@ -95,7 +95,10 @@ class RecordingProvider extends ChangeNotifier {
         _transcription.isConfigured) {
       try {
         final bytes = await _storage.readBytes(path);
-        final result = await _transcription.transcribeBytes(bytes);
+        final result = await _transcription.transcribeBytes(
+          bytes,
+          fileName: path,
+        );
         if (result.success) {
           transcript = result.text;
         } else {
