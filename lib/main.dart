@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/notes_provider.dart';
@@ -10,6 +11,7 @@ import 'services/db_init.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   initDatabaseFactory();
+  await initializeDateFormatting('fr_FR');
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {
