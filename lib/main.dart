@@ -14,7 +14,7 @@ import 'services/db_init.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   initDatabaseFactory();
-  await initializeDateFormatting('fr_FR', null);
+  await initializeDateFormatting('fr_FR');
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {

@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -7,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../models/note.dart';
 import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
+import '../services/audio_import_service.dart';
 import '../services/file_storage.dart';
 import '../services/transcription_service.dart';
 import '../widgets/app_drawer.dart';
@@ -25,6 +25,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final AudioImportService _audioImport = AudioImportService();
+
+  String? _selectedFileName;
+  bool _isImporting = false;
   final TranscriptionService _transcription = TranscriptionService();
   final FileStorage _storage = FileStorage();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -42,51 +46,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _importAudio() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.audio,
-      withData: true,
-    );
-    if (result == null) return;
-    final picked = result.files.single;
-    final bytes = picked.bytes;
-    final originalName = picked.name;
-    if (bytes == null) {
-      _showMessage("Impossible de lire le fichier audio sélectionné.");
-      return;
-    }
+    final picked = await _audioImport.pickAudioFile();
+    if (picked == null) return;
 
-    if (!_transcription.isConfigured) {
+    setState(() {
+      _selectedFileName = picked.fileName;
+      _isImporting = true;
+    });
+
+    if (!_audioImport.isTranscriptionConfigured) {
       _showMessage(
         "Transcription cloud non configurée. Ajoutez HF_API_TOKEN dans le fichier .env pour transcrire les fichiers importés.",
       );
     }
 
-    _showLoading('Transcription du fichier...');
-
-    String storedRef;
+    String storedRef = '';
     try {
-      final fileName =
-          'import_${DateTime.now().millisecondsSinceEpoch}${p.extension(originalName)}';
-      storedRef = await _storage.saveAudio(fileName, bytes);
+      storedRef = await _audioImport.storeAudio(picked.fileName, picked.bytes);
     } catch (_) {
-      storedRef = '';
+      if (mounted) {
+        setState(() => _isImporting = false);
+        _showMessage("Impossible d'enregistrer le fichier audio.");
+      }
+      return;
     }
 
     String transcript = '';
-    if (_transcription.isConfigured) {
-      final r = await _transcription.transcribeBytes(bytes);
-      if (r.success) {
-        transcript = r.text;
-      } else if (r.error != null) {
-        _dismissLoading();
-        _showMessage(r.error!);
-        await _saveImportedNote(originalName, storedRef, transcript);
-        return;
+    if (_audioImport.isTranscriptionConfigured) {
+      final result = await _audioImport.transcribe(picked.bytes);
+      if (result.success) {
+        transcript = result.text;
+      } else if (result.error != null) {
+        _showMessage(result.error!);
       }
     }
 
-    _dismissLoading();
-    await _saveImportedNote(originalName, storedRef, transcript);
+    if (!mounted) return;
+    setState(() => _isImporting = false);
+    await _saveImportedNote(picked.fileName, storedRef, transcript);
   }
 
   Future<void> _saveImportedNote(
@@ -106,27 +103,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!mounted) return;
     await context.read<NotesProvider>().addNote(note);
-    if (mounted) _openNote(note);
-  }
-
-  void _showLoading(String message) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        content: Row(
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(width: 20),
-            Expanded(child: Text(message)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _dismissLoading() {
-    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    if (mounted) {
+      setState(() => _selectedFileName = null);
+      _openNote(note);
+    }
   }
 
   void _showMessage(String message) {
@@ -250,11 +230,19 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: _importAudio,
-              icon: const Icon(Icons.upload_file_rounded),
-              label: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 10),
-                child: Text('Importer un fichier audio'),
+              onPressed: _isImporting ? null : _importAudio,
+              icon: _isImporting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.upload_file_rounded),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text(
+                  _isImporting ? 'Import en cours...' : 'Importer un audio',
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFFE3E6EF)),
@@ -264,6 +252,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+          if (_selectedFileName != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.audio_file_rounded,
+                  size: 18,
+                  color: Color(0xFF6C8EF5),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _selectedFileName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF6B7180),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
