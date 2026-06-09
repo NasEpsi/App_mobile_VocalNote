@@ -99,12 +99,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       folderId: _folderId,
       clearFolder: _folderId == null,
     );
-    final folderName = context.read<FoldersProvider>().byId(_folderId)?.name;
+    final folder = context.read<FoldersProvider>().byId(_folderId);
     try {
       if (pdf) {
-        await _export.exportAndSharePdf(note, folderName: folderName);
+        await _export.exportAndSharePdf(
+          note,
+          folderName: folder?.name,
+          folderColorValue: folder?.colorValue,
+        );
       } else {
-        await _export.exportAndShareTxt(note, folderName: folderName);
+        await _export.exportAndShareTxt(note, folderName: folder?.name);
       }
     } catch (e) {
       if (mounted) {
