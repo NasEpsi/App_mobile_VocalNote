@@ -1,48 +1,12 @@
-import 'package:flutter/material.dart';
-
-/// Categories used to tag notes, mirroring the Voxnote reference UI.
-enum NoteCategory {
-  travail,
-  idees,
-  perso;
-
-  String get label {
-    switch (this) {
-      case NoteCategory.travail:
-        return 'Travail';
-      case NoteCategory.idees:
-        return 'Idées';
-      case NoteCategory.perso:
-        return 'Perso';
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case NoteCategory.travail:
-        return const Color(0xFF6C8EF5);
-      case NoteCategory.idees:
-        return const Color(0xFFB57BEE);
-      case NoteCategory.perso:
-        return const Color(0xFF4FB39A);
-    }
-  }
-
-  static NoteCategory fromName(String? name) {
-    return NoteCategory.values.firstWhere(
-      (c) => c.name == name,
-      orElse: () => NoteCategory.perso,
-    );
-  }
-}
-
 /// A single voice note persisted in SQLite.
 class Note {
   final String id;
   final String title;
   final String transcript;
   final String? audioPath;
-  final NoteCategory category;
+
+  /// Id of the user-created folder this note belongs to, or null for none.
+  final String? folderId;
   final int durationMs;
   final DateTime createdAt;
 
@@ -51,7 +15,7 @@ class Note {
     required this.title,
     required this.transcript,
     required this.audioPath,
-    required this.category,
+    required this.folderId,
     required this.durationMs,
     required this.createdAt,
   });
@@ -60,7 +24,8 @@ class Note {
     String? title,
     String? transcript,
     String? audioPath,
-    NoteCategory? category,
+    String? folderId,
+    bool clearFolder = false,
     int? durationMs,
   }) {
     return Note(
@@ -68,7 +33,7 @@ class Note {
       title: title ?? this.title,
       transcript: transcript ?? this.transcript,
       audioPath: audioPath ?? this.audioPath,
-      category: category ?? this.category,
+      folderId: clearFolder ? null : (folderId ?? this.folderId),
       durationMs: durationMs ?? this.durationMs,
       createdAt: createdAt,
     );
@@ -80,7 +45,7 @@ class Note {
       'title': title,
       'transcript': transcript,
       'audioPath': audioPath,
-      'category': category.name,
+      'folderId': folderId,
       'durationMs': durationMs,
       'createdAt': createdAt.millisecondsSinceEpoch,
     };
@@ -92,7 +57,7 @@ class Note {
       title: (map['title'] as String?) ?? '',
       transcript: (map['transcript'] as String?) ?? '',
       audioPath: map['audioPath'] as String?,
-      category: NoteCategory.fromName(map['category'] as String?),
+      folderId: map['folderId'] as String?,
       durationMs: (map['durationMs'] as int?) ?? 0,
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         (map['createdAt'] as int?) ?? 0,
