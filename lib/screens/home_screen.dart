@@ -7,8 +7,6 @@ import '../models/note.dart';
 import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
 import '../services/audio_import_service.dart';
-import '../services/file_storage.dart';
-import '../services/transcription_service.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/note_card.dart';
@@ -29,8 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? _selectedFileName;
   bool _isImporting = false;
-  final TranscriptionService _transcription = TranscriptionService();
-  final FileStorage _storage = FileStorage();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _openRecorder() {
@@ -71,6 +67,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final duration = await _audioImport.probeDuration(storedRef);
+
     String transcript = '';
     if (_audioImport.isTranscriptionConfigured) {
       final result = await _audioImport.transcribe(picked.bytes);
@@ -83,13 +81,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
     setState(() => _isImporting = false);
-    await _saveImportedNote(picked.fileName, storedRef, transcript);
+    await _saveImportedNote(picked.fileName, storedRef, transcript, duration);
   }
 
   Future<void> _saveImportedNote(
     String originalName,
     String reference,
     String transcript,
+    Duration? duration,
   ) async {
     final title = p.basenameWithoutExtension(originalName);
     final note = Note(
@@ -98,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
       transcript: transcript,
       audioPath: reference.isEmpty ? null : reference,
       folderId: context.read<NotesProvider>().selectedFolderId,
-      durationMs: 0,
+      durationMs: duration?.inMilliseconds ?? 0,
       createdAt: DateTime.now(),
     );
     if (!mounted) return;
