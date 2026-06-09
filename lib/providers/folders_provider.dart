@@ -9,11 +9,24 @@ class FoldersProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService.instance;
 
   List<Folder> _folders = [];
+  String? _userId;
 
   List<Folder> get folders => _folders;
 
+  /// Sets the active user and (re)loads their folders. Pass null to clear.
+  Future<void> setUser(String? userId) async {
+    _userId = userId;
+    if (userId == null) {
+      _folders = [];
+      notifyListeners();
+      return;
+    }
+    await load();
+  }
+
   Future<void> load() async {
-    _folders = await _db.getFolders();
+    if (_userId == null) return;
+    _folders = await _db.getFolders(_userId!);
     notifyListeners();
   }
 
@@ -25,14 +38,15 @@ class FoldersProvider extends ChangeNotifier {
     return null;
   }
 
-  Future<Folder> addFolder(String name, int colorValue) async {
+  Future<Folder?> addFolder(String name, int colorValue) async {
+    if (_userId == null) return null;
     final folder = Folder(
       id: const Uuid().v4(),
       name: name,
       colorValue: colorValue,
       createdAt: DateTime.now(),
     );
-    await _db.insertFolder(folder);
+    await _db.insertFolder(folder, _userId!);
     _folders = [..._folders, folder];
     notifyListeners();
     return folder;

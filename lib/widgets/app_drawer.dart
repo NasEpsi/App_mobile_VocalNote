@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/folder.dart';
 import '../models/note.dart';
+import '../providers/auth_provider.dart';
 import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
 import '../screens/note_detail_screen.dart';
@@ -55,8 +56,7 @@ class AppDrawer extends StatelessWidget {
                         notesProvider.setFolderFilter(folder.id);
                         Navigator.pop(context);
                       },
-                      onLongPress: () =>
-                          _confirmDeleteFolder(context, folder),
+                      onDelete: () => _confirmDeleteFolder(context, folder),
                     ),
                   _newFolderTile(context),
                   const Divider(height: 28, indent: 16, endIndent: 16),
@@ -76,10 +76,75 @@ class AppDrawer extends StatelessWidget {
                 ],
               ),
             ),
+            _buildUserFooter(context),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildUserFooter(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final username = auth.currentUser?.username ?? '';
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFE3E6EF))),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: const Color(0xFF6C8EF5),
+            child: Text(
+              username.isEmpty ? '?' : username[0].toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Connecté en tant que',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF9AA0AE)),
+                ),
+                Text(
+                  username,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2330),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            color: const Color(0xFF6B7180),
+            tooltip: 'Se déconnecter',
+            onPressed: () => _logout(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    final notes = context.read<NotesProvider>();
+    final folders = context.read<FoldersProvider>();
+    Navigator.pop(context);
+    await notes.setUser(null);
+    await folders.setUser(null);
+    await auth.logout();
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -146,7 +211,7 @@ class AppDrawer extends StatelessWidget {
     required Color color,
     required bool selected,
     required VoidCallback onTap,
-    VoidCallback? onLongPress,
+    VoidCallback? onDelete,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -155,10 +220,14 @@ class AppDrawer extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            padding: EdgeInsets.only(
+              left: 12,
+              top: 4,
+              bottom: 4,
+              right: onDelete == null ? 12 : 4,
+            ),
             child: Row(
               children: [
                 Icon(icon, size: 20, color: color),
@@ -182,6 +251,15 @@ class AppDrawer extends StatelessWidget {
                     color: Color(0xFF9AA0AE),
                   ),
                 ),
+                if (onDelete != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                    color: const Color(0xFF9AA0AE),
+                    tooltip: 'Supprimer le dossier',
+                    onPressed: onDelete,
+                  )
+                else
+                  const SizedBox(width: 4),
               ],
             ),
           ),

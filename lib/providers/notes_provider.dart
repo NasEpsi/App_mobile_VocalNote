@@ -11,6 +11,7 @@ class NotesProvider extends ChangeNotifier {
 
   List<Note> _notes = [];
   String? _selectedFolderId; // null == "Tous"
+  String? _userId;
   bool _loading = false;
 
   List<Note> get allNotes => _notes;
@@ -28,10 +29,23 @@ class NotesProvider extends ChangeNotifier {
     return _notes.where((n) => n.folderId == folderId).length;
   }
 
+  /// Sets the active user and (re)loads their notes. Pass null to clear.
+  Future<void> setUser(String? userId) async {
+    _userId = userId;
+    _selectedFolderId = null;
+    if (userId == null) {
+      _notes = [];
+      notifyListeners();
+      return;
+    }
+    await load();
+  }
+
   Future<void> load() async {
+    if (_userId == null) return;
     _loading = true;
     notifyListeners();
-    _notes = await _db.getNotes();
+    _notes = await _db.getNotes(_userId!);
     _loading = false;
     notifyListeners();
   }
@@ -56,7 +70,8 @@ class NotesProvider extends ChangeNotifier {
   }
 
   Future<void> addNote(Note note) async {
-    await _db.insertNote(note);
+    if (_userId == null) return;
+    await _db.insertNote(note, _userId!);
     _notes = [note, ..._notes];
     notifyListeners();
   }
