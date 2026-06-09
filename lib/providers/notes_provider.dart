@@ -4,39 +4,74 @@ import '../models/note.dart';
 import '../services/database_service.dart';
 import '../services/file_storage.dart';
 
-/// Holds the list of notes, the active category filter, and CRUD operations.
+/// Holds the list of notes, the active folder filter, and CRUD operations.
 class NotesProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService.instance;
   final FileStorage _storage = FileStorage();
 
   List<Note> _notes = [];
-  NoteCategory? _filter; // null == "Tous"
+  String? _selectedFolderId; // null == "Tous"
+  String? _userId;
   bool _loading = false;
 
   List<Note> get allNotes => _notes;
-  NoteCategory? get filter => _filter;
+  String? get selectedFolderId => _selectedFolderId;
   bool get isLoading => _loading;
 
   List<Note> get notes {
-    if (_filter == null) return _notes;
-    return _notes.where((n) => n.category == _filter).toList();
+    if (_selectedFolderId == null) return _notes;
+    return _notes.where((n) => n.folderId == _selectedFolderId).toList();
+  }
+
+  int get totalCount => _notes.length;
+
+  int countForFolder(String folderId) {
+    return _notes.where((n) => n.folderId == folderId).length;
+  }
+
+  /// Sets the active user and (re)loads their notes. Pass null to clear.
+  Future<void> setUser(String? userId) async {
+    _userId = userId;
+    _selectedFolderId = null;
+    if (userId == null) {
+      _notes = [];
+      notifyListeners();
+      return;
+    }
+    await load();
   }
 
   Future<void> load() async {
+    if (_userId == null) return;
     _loading = true;
     notifyListeners();
-    _notes = await _db.getNotes();
+    _notes = await _db.getNotes(_userId!);
     _loading = false;
     notifyListeners();
   }
 
-  void setFilter(NoteCategory? category) {
-    _filter = category;
+  void setFolderFilter(String? folderId) {
+    _selectedFolderId = folderId;
+    notifyListeners();
+  }
+
+  /// Clears the filter if the selected folder no longer exists.
+  void onFolderRemoved(String folderId) {
+    for (final note in _notes) {
+      if (note.folderId == folderId) {
+        final index = _notes.indexOf(note);
+        _notes[index] = note.copyWith(clearFolder: true);
+      }
+    }
+    if (_selectedFolderId == folderId) {
+      _selectedFolderId = null;
+    }
     notifyListeners();
   }
 
   Future<void> addNote(Note note) async {
-    await _db.insertNote(note);
+    if (_userId == null) return;
+    await _db.insertNote(note, _userId!);
     _notes = [note, ..._notes];
     notifyListeners();
   }

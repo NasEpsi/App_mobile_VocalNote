@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/note.dart';
+import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
 import '../services/audio_player_service.dart';
 import '../services/export_service.dart';
@@ -23,7 +24,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   late TextEditingController _titleController;
   late TextEditingController _transcriptController;
-  late NoteCategory _category;
+  String? _folderId;
 
   bool _editing = false;
   bool _audioReady = false;
@@ -34,7 +35,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _titleController = TextEditingController(text: widget.note.title);
     _transcriptController =
         TextEditingController(text: widget.note.transcript);
-    _category = widget.note.category;
+    _folderId = widget.note.folderId;
     _initAudio();
   }
 
@@ -60,7 +61,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final updated = widget.note.copyWith(
       title: _titleController.text.trim(),
       transcript: _transcriptController.text.trim(),
-      category: _category,
+      folderId: _folderId,
+      clearFolder: _folderId == null,
     );
     await context.read<NotesProvider>().updateNote(updated);
     if (mounted) setState(() => _editing = false);
@@ -94,13 +96,19 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final note = widget.note.copyWith(
       title: _titleController.text.trim(),
       transcript: _transcriptController.text.trim(),
-      category: _category,
+      folderId: _folderId,
+      clearFolder: _folderId == null,
     );
+    final folder = context.read<FoldersProvider>().byId(_folderId);
     try {
       if (pdf) {
-        await _export.exportAndSharePdf(note);
+        await _export.exportAndSharePdf(
+          note,
+          folderName: folder?.name,
+          folderColorValue: folder?.colorValue,
+        );
       } else {
-        await _export.exportAndShareTxt(note);
+        await _export.exportAndShareTxt(note, folderName: folder?.name);
       }
     } catch (e) {
       if (mounted) {
@@ -164,8 +172,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _tag(_category.label, _category.color),
-                  const SizedBox(width: 10),
+                  _buildFolderTag(),
                   Text(
                     _safeDate(dateFormat),
                     style: const TextStyle(
@@ -177,19 +184,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               ),
               if (_editing) ...[
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final category in NoteCategory.values)
-                      ChoiceChip(
-                        label: Text(category.label),
-                        selected: _category == category,
-                        selectedColor: category.color.withValues(alpha: 0.2),
-                        onSelected: (_) =>
-                            setState(() => _category = category),
-                      ),
-                  ],
-                ),
+                _buildFolderChips(),
               ],
               const SizedBox(height: 20),
               if (_audioReady) _buildPlayer(),
@@ -342,6 +337,37 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$m:$s';
+  }
+
+  Widget _buildFolderTag() {
+    final folder = context.watch<FoldersProvider>().byId(_folderId);
+    if (folder == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: _tag(folder.name, folder.color),
+    );
+  }
+
+  Widget _buildFolderChips() {
+    final folders = context.watch<FoldersProvider>().folders;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ChoiceChip(
+          label: const Text('Aucun'),
+          selected: _folderId == null,
+          onSelected: (_) => setState(() => _folderId = null),
+        ),
+        for (final folder in folders)
+          ChoiceChip(
+            label: Text(folder.name),
+            selected: _folderId == folder.id,
+            selectedColor: folder.color.withValues(alpha: 0.2),
+            onSelected: (_) => setState(() => _folderId = folder.id),
+          ),
+      ],
+    );
   }
 
   Widget _tag(String label, Color color) {

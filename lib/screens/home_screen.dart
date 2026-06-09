@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/note.dart';
+import '../providers/folders_provider.dart';
 import '../providers/notes_provider.dart';
 import '../services/audio_import_service.dart';
+import '../services/file_storage.dart';
+import '../services/transcription_service.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/filter_chips.dart';
 import '../widgets/note_card.dart';
 import '../widgets/record_button.dart';
 import 'note_detail_screen.dart';
@@ -26,6 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? _selectedFileName;
   bool _isImporting = false;
+  final TranscriptionService _transcription = TranscriptionService();
+  final FileStorage _storage = FileStorage();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _openRecorder() {
     Navigator.of(context).push(
@@ -91,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
       title: title.isEmpty ? 'Fichier importé' : title,
       transcript: transcript,
       audioPath: reference.isEmpty ? null : reference,
-      category: NoteCategory.perso,
+      folderId: context.read<NotesProvider>().selectedFolderId,
       durationMs: 0,
       createdAt: DateTime.now(),
     );
@@ -112,26 +118,25 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final notesProvider = context.watch<NotesProvider>();
+    final foldersProvider = context.watch<FoldersProvider>();
     final notes = notesProvider.notes;
+    final selectedFolder =
+        foldersProvider.byId(notesProvider.selectedFolderId);
+    final currentLabel = selectedFolder?.name ?? 'Tous';
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppDrawer(),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () => notesProvider.load(),
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(child: _buildHeader()),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                  child: FilterChips(
-                    selected: notesProvider.filter,
-                    onSelected: notesProvider.setFilter,
-                  ),
-                ),
-              ),
               SliverToBoxAdapter(child: _buildRecordArea()),
-              SliverToBoxAdapter(child: _buildRecentsHeader(notes.length)),
+              SliverToBoxAdapter(
+                child: _buildRecentsHeader(currentLabel, notes.length),
+              ),
               if (notesProvider.isLoading)
                 const SliverToBoxAdapter(
                   child: Padding(
@@ -148,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: notes.length,
                     itemBuilder: (context, index) => NoteCard(
                       note: notes[index],
+                      folder: foldersProvider.byId(notes[index].folderId),
                       onTap: () => _openNote(notes[index]),
                     ),
                   ),
@@ -162,9 +168,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 20, 12),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            color: const Color(0xFF1F2330),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
           Container(
             width: 40,
             height: 40,
@@ -270,19 +281,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRecentsHeader(int count) {
+  Widget _buildRecentsHeader(String folderLabel, int count) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'Récents',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1F2330),
-            ),
+          Row(
+            children: [
+              const Text(
+                'Récents',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1F2330),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '• $folderLabel',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF9AA0AE),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
           Text(
             '$count',
